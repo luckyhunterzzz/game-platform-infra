@@ -1,0 +1,45 @@
+{
+  "realm": "game-realm",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      { "name": "admin" },
+      { "name": "superadmin" },
+      { "name": "user" },
+      { "name": "contractor" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "game-frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/*"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "credentials": [
+        { "type": "password", "value": "admin", "temporary": false }
+      ],
+      "realmRoles": ["admin", "superadmin"]
+    },
+    {
+      "username": "test_user",
+      "enabled": true,
+      "credentials": [
+        { "type": "password", "value": "test", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    }
+  ]
+}
