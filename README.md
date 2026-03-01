@@ -10,9 +10,10 @@ This repository provides a pre-configured environment to manage identity and dat
 
 | Service | Technology | Port | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Identity** | Keycloak 23 | `8080` | OIDC Provider, Auth & RBAC |
-| **Database** | Postgres 16 | `5432` | Storage for Content & Identity |
-| **Network** | Docker Bridge | - | Isolated inter-service communication |
+| **API Gateway** | Spring Cloud Gateway | **8081** | Entry point, JWT Validation & Routing |
+| **Main Service** | Spring Boot 3 | 8082 | Core Business Logic |
+| **Identity** | Keycloak 23 | 8080 | OIDC Provider, Auth & RBAC |
+| **Database** | Postgres 16 | 5432 | Storage for Platform & Identity |
 
 ---
 
@@ -34,20 +35,21 @@ KC_DB_USERNAME=admin
 KC_DB_PASSWORD=password
 
 # Spring Profiles
+# 'dev' disables JWT issuer validation for local development
 SPRING_PROFILES_ACTIVE=dev,docker
 ```
 
 ### 2. Launch
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 
 ### Verify
+API Gateway (Entry): http://localhost:8081/actuator/health
+
 Keycloak Console: http://localhost:8080
 
 Realm: game-realm (auto-imported)
-
-Healthcheck: Use docker compose ps to ensure services are healthy.
 
 ## 🔐 Development Access
 
@@ -55,15 +57,16 @@ Healthcheck: Use docker compose ps to ensure services are healthy.
 
 | Username | Password | Roles |
 | :--- | :--- | :--- |
-| **admin** | `admin` | `admin`, `superadmin` |
+| **admin_user** | `admin` | `admin`, `superadmin` |
 | **test_user** | `test` | `user` |
 
+Note: To access /api/v1/admin/** endpoints, you must obtain a JWT from Keycloak and use it as a Bearer token.
 ---
 
 ## 📦 Database Management
 
 We use a **Database-per-Service** pattern:
-- `main_page_db`: Primary DB for content services (auto-created by Docker env).
+- `main_db`: Primary DB for content services (auto-created by Docker env).
 - `keycloak_db`: Dedicated DB for Keycloak (created via `postgres-init/01-init.sql`).
 
 **To reset databases and re-run init scripts:**
