@@ -31,7 +31,10 @@ KEYCLOAK_ADMIN_PASSWORD=admin
 
 # Keycloak DB Connection
 KC_DB_USERNAME=admin
-KC_DB_PASSWORD=password 
+KC_DB_PASSWORD=password
+
+# Spring Profiles
+SPRING_PROFILES_ACTIVE=dev,docker
 ```
 
 ### 2. Launch
