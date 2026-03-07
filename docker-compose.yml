@@ -58,6 +58,10 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
       JAVA_OPTS: "-Xms256m -Xmx512m"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     restart: unless-stopped
     networks:
       - game-network
