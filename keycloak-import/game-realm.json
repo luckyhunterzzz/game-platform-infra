@@ -1,6 +1,23 @@
 {
   "realm": "game-realm",
   "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "verifyEmail": true,
+  "smtpServer": {
+    "host": "smtp.yandex.ru",
+    "port": "465",
+    "from": "noreply.gameplatform@yandex.com",
+    "fromDisplayName": "Game Platform",
+    "auth": "true",
+    "user": "noreply.gameplatform@yandex.com",
+    "password": "ltefpwaawjzdenue",
+    "ssl": "true",
+    "starttls": "false"
+  },
   "roles": {
     "realm": [
       { "name": "admin" },
@@ -28,6 +45,7 @@
     {
       "username": "admin",
       "enabled": true,
+      "emailVerified": true,
       "credentials": [
         { "type": "password", "value": "admin", "temporary": false }
       ],
@@ -36,6 +54,8 @@
     {
       "username": "test_user",
       "enabled": true,
+      "email": "test_user@example.com",
+      "emailVerified": true,
       "credentials": [
         { "type": "password", "value": "test", "temporary": false }
       ],

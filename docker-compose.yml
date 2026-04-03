@@ -23,9 +23,23 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.0
     container_name: game-keycloak
-    command:
-      - start-dev
-      - --import-realm
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        sed \
+          -e "s|__KC_SMTP_HOST__|$${KC_SMTP_HOST}|g" \
+          -e "s|__KC_SMTP_PORT__|$${KC_SMTP_PORT}|g" \
+          -e "s|__KC_SMTP_FROM__|$${KC_SMTP_FROM}|g" \
+          -e "s|__KC_SMTP_FROM_DISPLAY_NAME__|$${KC_SMTP_FROM_DISPLAY_NAME}|g" \
+          -e "s|__KC_SMTP_USER__|$${KC_SMTP_USER}|g" \
+          -e "s|__KC_SMTP_PASSWORD__|$${KC_SMTP_PASSWORD}|g" \
+          -e "s|__KC_SMTP_AUTH__|$${KC_SMTP_AUTH}|g" \
+          -e "s|__KC_SMTP_SSL__|$${KC_SMTP_SSL}|g" \
+          -e "s|__KC_SMTP_STARTTLS__|$${KC_SMTP_STARTTLS}|g" \
+          /opt/keycloak/data/import/templates/game-realm.template.json \
+          > /opt/keycloak/data/import/game-realm.json
+        exec /opt/keycloak/bin/kc.sh start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -36,6 +50,15 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_RELATIVE_PATH: "/"
+      KC_SMTP_HOST: ${KC_SMTP_HOST}
+      KC_SMTP_PORT: ${KC_SMTP_PORT}
+      KC_SMTP_FROM: ${KC_SMTP_FROM}
+      KC_SMTP_FROM_DISPLAY_NAME: ${KC_SMTP_FROM_DISPLAY_NAME}
+      KC_SMTP_USER: ${KC_SMTP_USER}
+      KC_SMTP_PASSWORD: ${KC_SMTP_PASSWORD}
+      KC_SMTP_AUTH: ${KC_SMTP_AUTH}
+      KC_SMTP_SSL: ${KC_SMTP_SSL}
+      KC_SMTP_STARTTLS: ${KC_SMTP_STARTTLS}
     ports:
       - "8080:8080"
     volumes:

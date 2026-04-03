@@ -33,3 +33,5 @@ replay_pid*
 pg-data/
 
 .env
+keycloak-import/game-realm.json
+keycloak-import/templates/
