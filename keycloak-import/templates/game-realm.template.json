@@ -1,0 +1,65 @@
+{
+  "realm": "game-realm",
+  "enabled": true,
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "verifyEmail": true,
+  "smtpServer": {
+    "host": "__KC_SMTP_HOST__",
+    "port": "__KC_SMTP_PORT__",
+    "from": "__KC_SMTP_FROM__",
+    "fromDisplayName": "__KC_SMTP_FROM_DISPLAY_NAME__",
+    "auth": "__KC_SMTP_AUTH__",
+    "user": "__KC_SMTP_USER__",
+    "password": "__KC_SMTP_PASSWORD__",
+    "ssl": "__KC_SMTP_SSL__",
+    "starttls": "__KC_SMTP_STARTTLS__"
+  },
+  "roles": {
+    "realm": [
+      { "name": "admin" },
+      { "name": "superadmin" },
+      { "name": "user" },
+      { "name": "contractor" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "game-frontend",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "__FRONTEND_URL__/*"
+      ],
+      "webOrigins": [
+        "__FRONTEND_URL__"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "admin", "temporary": false }
+      ],
+      "realmRoles": ["admin", "superadmin"]
+    },
+    {
+      "username": "test_user",
+      "enabled": true,
+      "email": "test_user@example.com",
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "test", "temporary": false }
+      ],
+      "realmRoles": ["user"]
+    }
+  ]
+}
