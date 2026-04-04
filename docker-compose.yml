@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: main_db
-    ports:
-      - "5432:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d
@@ -37,6 +35,7 @@ services:
           -e "s|__KC_SMTP_AUTH__|$${KC_SMTP_AUTH}|g" \
           -e "s|__KC_SMTP_SSL__|$${KC_SMTP_SSL}|g" \
           -e "s|__KC_SMTP_STARTTLS__|$${KC_SMTP_STARTTLS}|g" \
+          -e "s|__FRONTEND_URL__|$${FRONTEND_URL}|g" \
           /opt/keycloak/data/import/templates/game-realm.template.json \
           > /opt/keycloak/data/import/game-realm.json
         exec /opt/keycloak/bin/kc.sh start-dev --import-realm
@@ -48,6 +47,9 @@ services:
       KC_DB_USERNAME: ${KC_DB_USERNAME}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_RELATIVE_PATH: "/"
       KC_SMTP_HOST: ${KC_SMTP_HOST}
@@ -60,7 +62,7 @@ services:
       KC_SMTP_SSL: ${KC_SMTP_SSL}
       KC_SMTP_STARTTLS: ${KC_SMTP_STARTTLS}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./keycloak-import:/opt/keycloak/data/import
     depends_on:
@@ -74,94 +76,6 @@ services:
       interval: 10s
       timeout: 3s
       retries: 20
-
-  kafka:
-    image: apache/kafka:3.9.2
-    container_name: game-kafka
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-    networks:
-      - game-network
-    restart: unless-stopped
-    healthcheck:
-      test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1 || exit 1" ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  kafka-init:
-    image: apache/kafka:3.9.2
-    container_name: game-kafka-init
-    depends_on:
-      kafka:
-        condition: service_healthy
-    networks:
-      - game-network
-    entrypoint: [ "/bin/sh", "-c" ]
-    command: >
-      "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic player-profile-events --partitions 1 --replication-factor 1 && 
-       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic trust-score-events --partitions 1 --replication-factor 1 && 
-       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic joint-purchase-events --partitions 1 --replication-factor 1 && 
-       echo 'Topics created successfully'"
-
-  redis:
-    image: redis:7.4
-    container_name: game-redis
-    ports:
-      - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]
-    networks:
-      - game-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  mongodb:
-    image: mongo:8.0
-    container_name: game-mongodb
-    ports:
-      - "27017:27017"
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - game-network
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "mongosh",
-          "--username",
-          "${MONGO_ROOT_USERNAME}",
-          "--password",
-          "${MONGO_ROOT_PASSWORD}",
-          "--authenticationDatabase",
-          "admin",
-          "--eval",
-          "db.adminCommand('ping')"
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 10
 
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
@@ -206,20 +120,24 @@ services:
       - game-network
 
   main-service:
-    build:
-      context: ../game-platform-main-service
-      dockerfile: Dockerfile
+    image: ${MAIN_SERVICE_IMAGE}
     container_name: game-main-service
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SERVER_PORT: 8082
-      JAVA_OPTS: "-Xms256m -Xmx512m"
+      JAVA_OPTS: ${MAIN_SERVICE_JAVA_OPTS:--Xms256m -Xmx512m}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       APP_MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_URL}
-      APP_PUBLICATIONS_DEFAULT_PAGE_SIZE: 10
+      APP_PUBLICATIONS_DEFAULT_PAGE_SIZE: ${APP_PUBLICATIONS_DEFAULT_PAGE_SIZE:-10}
+      APP_PUBLICATIONS_MAX_PAGE_SIZE: ${APP_PUBLICATIONS_MAX_PAGE_SIZE:-50}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - game-network
@@ -229,111 +147,21 @@ services:
       timeout: 3s
       retries: 10
 
-  player-profile-service:
-    build:
-      context: ../game-platform-player-profile-service
-      dockerfile: Dockerfile
-    container_name: game-player-profile-service
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SERVER_PORT: 8083
-      JAVA_OPTS: "-Xms256m -Xmx512m"
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/player_profile_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    networks:
-      - game-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-
-  trust-score-service:
-    build:
-      context: ../game-platform-trust-score-service
-      dockerfile: Dockerfile
-    container_name: game-trust-score-service
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SERVER_PORT: 8084
-      JAVA_OPTS: "-Xms256m -Xmx512m"
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    depends_on:
-      kafka:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - game-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-
-  joint-purchase-service:
-    build:
-      context: ../game-platform-joint-purchase-service
-      dockerfile: Dockerfile
-    container_name: game-joint-purchase-service
-    environment:
-      SPRING_PROFILES_ACTIVE: docker
-      SERVER_PORT: 8085
-      JAVA_OPTS: "-Xms256m -Xmx512m"
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/joint_purchase_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/joint_purchase_audit?authSource=admin
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    depends_on:
-      postgres:
-        condition: service_healthy
-      mongodb:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    networks:
-      - game-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-
   api-gateway:
-    build:
-      context: ../game-platform-api-gateway
-      dockerfile: Dockerfile
+    image: ${API_GATEWAY_IMAGE}
     container_name: game-gateway
     ports:
-      - "8081:8081"
+      - "127.0.0.1:8081:8081"
     environment:
       SPRING_PROFILES_ACTIVE: ${GATEWAY_PROFILE:-docker}
       SERVER_PORT: 8081
-      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/game-realm
-      JAVA_OPTS: "-Xms256m -Xmx512m"
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${JWT_ISSUER_URI}
+      CORS_ALLOWED_ORIGINS: ${FRONTEND_URL}
+      JAVA_OPTS: ${API_GATEWAY_JAVA_OPTS:--Xms256m -Xmx512m}
     depends_on:
       keycloak:
         condition: service_healthy
       main-service:
-        condition: service_healthy
-      player-profile-service:
-        condition: service_healthy
-      trust-score-service:
-        condition: service_healthy
-      joint-purchase-service:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -345,21 +173,16 @@ services:
       retries: 20
 
   game-frontend:
-    build:
-      context: ../game-platform-frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8080
-        NEXT_PUBLIC_KEYCLOAK_REALM: game-realm
-        NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: game-frontend
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8081
+    image: ${FRONTEND_IMAGE}
     container_name: game-frontend
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     networks:
       - game-network
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_healthy
+    restart: unless-stopped
 
 networks:
   game-network:
@@ -368,4 +191,3 @@ networks:
 volumes:
   pg-data:
   minio_data:
-  mongo_data:
