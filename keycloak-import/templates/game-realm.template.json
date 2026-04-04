@@ -40,26 +40,5 @@
         "__FRONTEND_URL__"
       ]
     }
-  ],
-  "users": [
-    {
-      "username": "admin",
-      "enabled": true,
-      "emailVerified": true,
-      "credentials": [
-        { "type": "password", "value": "admin", "temporary": false }
-      ],
-      "realmRoles": ["admin", "superadmin"]
-    },
-    {
-      "username": "test_user",
-      "enabled": true,
-      "email": "test_user@example.com",
-      "emailVerified": true,
-      "credentials": [
-        { "type": "password", "value": "test", "temporary": false }
-      ],
-      "realmRoles": ["user"]
-    }
   ]
 }
