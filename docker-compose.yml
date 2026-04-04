@@ -48,9 +48,10 @@ services:
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       KC_HEALTH_ENABLED: "true"
       KC_HTTP_ENABLED: "true"
-      KC_PROXY_HEADERS: xforwarded
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
-      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_HTTPS: "true"
+      KC_PROXY: edge
       KC_HTTP_RELATIVE_PATH: "/"
       KC_SMTP_HOST: ${KC_SMTP_HOST}
       KC_SMTP_PORT: ${KC_SMTP_PORT}
