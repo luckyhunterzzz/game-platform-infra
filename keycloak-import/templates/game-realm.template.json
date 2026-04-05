@@ -8,15 +8,15 @@
   "resetPasswordAllowed": true,
   "verifyEmail": true,
   "smtpServer": {
-    "host": "smtp.yandex.ru",
-    "port": "465",
-    "from": "noreply.gameplatform@yandex.com",
-    "fromDisplayName": "Game Platform",
-    "auth": "true",
-    "user": "noreply.gameplatform@yandex.com",
-    "password": "ltefpwaawjzdenue",
-    "ssl": "true",
-    "starttls": "false"
+    "host": "__KC_SMTP_HOST__",
+    "port": "__KC_SMTP_PORT__",
+    "from": "__KC_SMTP_FROM__",
+    "fromDisplayName": "__KC_SMTP_FROM_DISPLAY_NAME__",
+    "auth": "__KC_SMTP_AUTH__",
+    "user": "__KC_SMTP_USER__",
+    "password": "__KC_SMTP_PASSWORD__",
+    "ssl": "__KC_SMTP_SSL__",
+    "starttls": "__KC_SMTP_STARTTLS__"
   },
   "roles": {
     "realm": [
@@ -50,16 +50,6 @@
         { "type": "password", "value": "admin", "temporary": false }
       ],
       "realmRoles": ["admin", "superadmin"]
-    },
-    {
-      "username": "test_user",
-      "enabled": true,
-      "email": "test_user@example.com",
-      "emailVerified": true,
-      "credentials": [
-        { "type": "password", "value": "test", "temporary": false }
-      ],
-      "realmRoles": ["user"]
     }
   ]
 }
