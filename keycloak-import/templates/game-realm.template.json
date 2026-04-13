@@ -7,6 +7,7 @@
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "verifyEmail": true,
+  "loginTheme": "gameops",
   "smtpServer": {
     "host": "__KC_SMTP_HOST__",
     "port": "__KC_SMTP_PORT__",
@@ -26,6 +27,17 @@
       { "name": "contractor" }
     ]
   },
+  "requiredActions": [
+    {
+      "alias": "terms_and_conditions",
+      "name": "Terms and Conditions",
+      "providerId": "terms_and_conditions",
+      "enabled": true,
+      "defaultAction": true,
+      "priority": 20,
+      "config": {}
+    }
+  ],
   "clients": [
     {
       "clientId": "game-frontend",
