@@ -38,6 +38,10 @@ services:
           -e "s|__FRONTEND_URL__|$${FRONTEND_URL}|g" \
           /opt/keycloak/data/import/templates/game-realm.template.json \
           > /opt/keycloak/data/import/game-realm.json
+        sed \
+          -e "s|__FRONTEND_URL__|$${FRONTEND_URL}|g" \
+          /opt/keycloak/themes/gameops/login/terms.ftl.template \
+          > /opt/keycloak/themes/gameops/login/terms.ftl
         exec /opt/keycloak/bin/kc.sh start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
@@ -67,6 +71,7 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       - ./keycloak-import:/opt/keycloak/data/import
+      - ./keycloak-themes:/opt/keycloak/themes
     depends_on:
       postgres:
         condition: service_healthy
