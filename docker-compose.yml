@@ -150,6 +150,27 @@ services:
       timeout: 3s
       retries: 10
 
+  player-profile-service:
+    image: ${PLAYER_PROFILE_SERVICE_IMAGE}
+    container_name: game-player-profile-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8083
+      JAVA_OPTS: ${PLAYER_PROFILE_SERVICE_JAVA_OPTS:--Xms256m -Xmx512m}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - game-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
   api-gateway:
     image: ${API_GATEWAY_IMAGE}
     container_name: game-gateway
@@ -165,6 +186,8 @@ services:
       keycloak:
         condition: service_healthy
       main-service:
+        condition: service_healthy
+      player-profile-service:
         condition: service_healthy
     restart: unless-stopped
     networks:
