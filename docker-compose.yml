@@ -116,6 +116,7 @@ services:
       "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic player-profile-events --partitions 1 --replication-factor 1 && 
        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic trust-score-events --partitions 1 --replication-factor 1 && 
        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic joint-purchase-events --partitions 1 --replication-factor 1 && 
+       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic notification-events --partitions 1 --replication-factor 1 && 
        echo 'Topics created successfully'"
 
   redis:
@@ -297,6 +298,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/joint_purchase_audit?authSource=admin
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      APP_MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_URL}
     depends_on:
       postgres:
         condition: service_healthy
@@ -309,6 +313,42 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  notification-service:
+    build:
+      context: ../game-platform-notification-service
+      dockerfile: Dockerfile
+    container_name: game-notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8086
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/notification_db
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KC_SMTP_HOST: ${KC_SMTP_HOST}
+      KC_SMTP_PORT: ${KC_SMTP_PORT}
+      KC_SMTP_FROM: ${KC_SMTP_FROM}
+      KC_SMTP_FROM_DISPLAY_NAME: ${KC_SMTP_FROM_DISPLAY_NAME}
+      KC_SMTP_USER: ${KC_SMTP_USER}
+      KC_SMTP_PASSWORD: ${KC_SMTP_PASSWORD}
+      KC_SMTP_AUTH: ${KC_SMTP_AUTH}
+      KC_SMTP_SSL: ${KC_SMTP_SSL}
+      KC_SMTP_STARTTLS: ${KC_SMTP_STARTTLS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - game-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/actuator/health"]
       interval: 10s
       timeout: 3s
       retries: 10
