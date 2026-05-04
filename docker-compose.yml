@@ -80,6 +80,76 @@ services:
       timeout: 3s
       retries: 20
 
+  kafka:
+    image: apache/kafka:3.9.2
+    container_name: game-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    networks:
+      - game-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1 || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka-init:
+    image: apache/kafka:3.9.2
+    container_name: game-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - game-network
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: >
+      "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic player-profile-events --partitions 1 --replication-factor 1 &&
+       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic trust-score-events --partitions 1 --replication-factor 1 &&
+       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic joint-purchase-events --partitions 1 --replication-factor 1 &&
+       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic notification-events --partitions 1 --replication-factor 1 &&
+       echo 'Topics created successfully'"
+
+  mongodb:
+    image: mongo:8.0
+    container_name: game-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - game-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--username",
+          "${MONGO_ROOT_USERNAME}",
+          "--password",
+          "${MONGO_ROOT_PASSWORD}",
+          "--authenticationDatabase",
+          "admin",
+          "--eval",
+          "db.adminCommand('ping')"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   minio:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: minio
@@ -171,6 +241,77 @@ services:
       timeout: 3s
       retries: 10
 
+  joint-purchase-service:
+    image: ${JOINT_PURCHASE_SERVICE_IMAGE}
+    container_name: game-joint-purchase-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8085
+      JAVA_OPTS: ${JOINT_PURCHASE_SERVICE_JAVA_OPTS:--Xms256m -Xmx512m}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATA_MONGODB_URI: mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/joint_purchase_audit?authSource=admin
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      APP_MINIO_ENDPOINT: http://minio:9000
+      APP_MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_URL}
+      APP_MINIO_PUBLIC_BUCKET: game-content
+      APP_MINIO_PRIVATE_BUCKET: user-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      player-profile-service:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - game-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  notification-service:
+    image: ${NOTIFICATION_SERVICE_IMAGE}
+    container_name: game-notification-service
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8086
+      JAVA_OPTS: ${NOTIFICATION_SERVICE_JAVA_OPTS:--Xms256m -Xmx512m}
+      MANAGEMENT_HEALTH_MAIL_ENABLED: "false"
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KC_SMTP_HOST: ${KC_SMTP_HOST}
+      KC_SMTP_PORT: ${KC_SMTP_PORT}
+      KC_SMTP_FROM: ${KC_SMTP_FROM}
+      KC_SMTP_FROM_DISPLAY_NAME: ${KC_SMTP_FROM_DISPLAY_NAME}
+      KC_SMTP_USER: ${KC_SMTP_USER}
+      KC_SMTP_PASSWORD: ${KC_SMTP_PASSWORD}
+      KC_SMTP_AUTH: ${KC_SMTP_AUTH}
+      KC_SMTP_SSL: ${KC_SMTP_SSL}
+      KC_SMTP_STARTTLS: ${KC_SMTP_STARTTLS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - game-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
   api-gateway:
     image: ${API_GATEWAY_IMAGE}
     container_name: game-gateway
@@ -188,6 +329,8 @@ services:
       main-service:
         condition: service_healthy
       player-profile-service:
+        condition: service_healthy
+      joint-purchase-service:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -217,3 +360,4 @@ networks:
 volumes:
   pg-data:
   minio_data:
+  mongo_data:
