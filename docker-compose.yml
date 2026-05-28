@@ -206,6 +206,9 @@ services:
       APP_MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_URL}
       APP_PUBLICATIONS_DEFAULT_PAGE_SIZE: ${APP_PUBLICATIONS_DEFAULT_PAGE_SIZE:-10}
       APP_PUBLICATIONS_MAX_PAGE_SIZE: ${APP_PUBLICATIONS_MAX_PAGE_SIZE:-50}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-main-service-production}
     depends_on:
       postgres:
         condition: service_healthy
