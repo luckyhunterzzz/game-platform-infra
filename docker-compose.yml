@@ -222,6 +222,9 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       APP_MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_URL}
       APP_PUBLICATIONS_DEFAULT_PAGE_SIZE: 10
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-local}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-main-service-local}
     restart: unless-stopped
     networks:
       - game-network
@@ -397,6 +400,8 @@ services:
     container_name: game-frontend
     ports:
       - "3000:3000"
+    environment:
+      INTERNAL_API_BASE_URL: http://api-gateway:8081
     networks:
       - game-network
     depends_on:

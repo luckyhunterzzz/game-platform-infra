@@ -37,6 +37,11 @@ KC_DB_PASSWORD=password
 # Spring Profiles
 # 'dev' disables JWT issuer validation for local development
 SPRING_PROFILES_ACTIVE=dev,docker
+
+# Sentry (optional for local development)
+SENTRY_DSN=https://test.sentry.io
+SENTRY_ENVIRONMENT=local
+SENTRY_RELEASE=main-service-local
 ```
 
 ### 2. Launch
