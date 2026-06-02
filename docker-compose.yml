@@ -232,6 +232,9 @@ services:
       JAVA_OPTS: ${PLAYER_PROFILE_SERVICE_JAVA_OPTS:--Xms256m -Xmx512m}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-player-profile-service-production}
     depends_on:
       postgres:
         condition: service_healthy
@@ -261,6 +264,9 @@ services:
       APP_MINIO_PUBLIC_BASE_URL: ${MINIO_PUBLIC_URL}
       APP_MINIO_PUBLIC_BUCKET: game-content
       APP_MINIO_PRIVATE_BUCKET: user-data
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-joint-purchase-service-production}
     depends_on:
       postgres:
         condition: service_healthy
@@ -301,6 +307,9 @@ services:
       KC_SMTP_AUTH: ${KC_SMTP_AUTH}
       KC_SMTP_SSL: ${KC_SMTP_SSL}
       KC_SMTP_STARTTLS: ${KC_SMTP_STARTTLS}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-notification-service-production}
     depends_on:
       postgres:
         condition: service_healthy
@@ -326,6 +335,9 @@ services:
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${JWT_ISSUER_URI}
       CORS_ALLOWED_ORIGINS: ${FRONTEND_URL}
       JAVA_OPTS: ${API_GATEWAY_JAVA_OPTS:--Xms256m -Xmx512m}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-api-gateway-production}
     depends_on:
       keycloak:
         condition: service_healthy
@@ -343,6 +355,55 @@ services:
       interval: 10s
       timeout: 3s
       retries: 20
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: game-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+      main-service:
+        condition: service_healthy
+      player-profile-service:
+        condition: service_healthy
+      trust-score-service:
+        condition: service_healthy
+      joint-purchase-service:
+        condition: service_healthy
+      notification-service:
+        condition: service_healthy
+    networks:
+      - game-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    container_name: game-grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_started
+    networks:
+      - game-network
+    restart: unless-stopped
 
   game-frontend:
     image: ${FRONTEND_IMAGE}
@@ -364,3 +425,5 @@ volumes:
   pg-data:
   minio_data:
   mongo_data:
+  prometheus_data:
+  grafana_data:
