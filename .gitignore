@@ -34,3 +34,4 @@ pg-data/
 
 .env
 keycloak-import/game-realm.json
+AGENTS.md
