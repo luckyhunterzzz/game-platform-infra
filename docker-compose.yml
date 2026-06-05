@@ -376,8 +376,6 @@ services:
         condition: service_healthy
       player-profile-service:
         condition: service_healthy
-      trust-score-service:
-        condition: service_healthy
       joint-purchase-service:
         condition: service_healthy
       notification-service:
