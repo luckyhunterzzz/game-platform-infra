@@ -48,6 +48,7 @@ services:
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       FRONTEND_URL: ${FRONTEND_URL}
       KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
       KC_HOSTNAME_STRICT_HTTPS: "false"
