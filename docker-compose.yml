@@ -50,7 +50,9 @@ services:
       KC_DB_USERNAME: ${KC_DB_USERNAME}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       KC_HEALTH_ENABLED: "true"
-      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_URL: http://localhost:8080
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "true"
       KC_HTTP_RELATIVE_PATH: "/"
       KC_SMTP_HOST: ${KC_SMTP_HOST}
       KC_SMTP_PORT: ${KC_SMTP_PORT}
