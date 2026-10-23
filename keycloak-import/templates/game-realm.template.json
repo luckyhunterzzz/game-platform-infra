@@ -8,6 +8,11 @@
   "resetPasswordAllowed": true,
   "verifyEmail": true,
   "loginTheme": "gameops",
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 604800,
+  "ssoSessionMaxLifespan": 604800,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
   "smtpServer": {
     "host": "__KC_SMTP_HOST__",
     "port": "__KC_SMTP_PORT__",
@@ -40,17 +45,26 @@
   ],
   "clients": [
     {
-      "clientId": "game-frontend",
+      "clientId": "game-gateway",
       "enabled": true,
-      "publicClient": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "__GAME_GATEWAY_CLIENT_SECRET__",
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
       "redirectUris": [
-        "__FRONTEND_URL__/*"
+        "__API_PUBLIC_URL__/login/oauth2/code/keycloak",
+        "__RU_API_PUBLIC_URL__/login/oauth2/code/keycloak"
       ],
       "webOrigins": [
-        "__FRONTEND_URL__"
-      ]
+        "__FRONTEND_URL__",
+        "__RU_FRONTEND_URL__"
+      ],
+      "attributes": {
+        "post.logout.redirect.uris": "__FRONTEND_URL__/*##__RU_FRONTEND_URL__/*"
+      }
     }
   ]
 }
