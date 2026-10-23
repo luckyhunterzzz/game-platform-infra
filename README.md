@@ -1,8 +1,6 @@
 # 🎮 Game Ops Platform - Infrastructure
 
-**Stage 1** — Core infrastructure skeleton for the GameOps Platform.
-
-This repository provides a pre-configured environment to manage identity and data, ensuring a "single-button" startup for the entire development ecosystem.
+Production Docker Compose configuration for the GameOps Platform.
 
 ---
 
@@ -10,58 +8,52 @@ This repository provides a pre-configured environment to manage identity and dat
 
 | Service | Technology | Port | Purpose |
 | :--- | :--- | :--- | :--- |
-| **API Gateway** | Spring Cloud Gateway | **8081** | Entry point, JWT Validation & Routing |
+| **API Gateway** | Spring Cloud Gateway | **8081** | OAuth2 login, Redis sessions and routing |
 | **Main Service** | Spring Boot 3 | 8082 | Core Business Logic |
 | **Identity** | Keycloak 23 | 8080 | OIDC Provider, Auth & RBAC |
 | **Database** | Postgres 16 | 5432 | Storage for Platform & Identity |
+| **Gateway Sessions** | Redis 7.4 | internal | SecurityContext and OAuth2 authorized clients |
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Deployment preparation
 
 ### 1. Prepare Environment
-Create a `.env` file in the root directory:
+Create the production `.env` file from `.env.example`. At minimum, provide strong unique values for:
 ```bash
-# Postgres
-POSTGRES_USER=admin
-POSTGRES_PASSWORD=password
-
-# Keycloak Admin Console
-KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=admin
-
-# Keycloak DB Connection
-KC_DB_USERNAME=admin
-KC_DB_PASSWORD=password
-
-# Spring Profiles
-# 'dev' disables JWT issuer validation for local development
-SPRING_PROFILES_ACTIVE=dev,docker
+GAME_GATEWAY_CLIENT_SECRET=replace_with_gateway_client_secret
+GATEWAY_SESSION_REDIS_PASSWORD=replace_with_gateway_session_redis_password
+GATEWAY_SESSION_TTL=7d
+GATEWAY_SESSION_COOKIE_MAX_AGE=7d
 ```
 
-### 2. Launch
+The Gateway client secret in `.env` must exactly match the secret of the confidential `game-gateway` client in the live Keycloak realm.
+
+### 2. Pull images and launch
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
 ### Verify
-API Gateway (Entry): http://localhost:8081/actuator/health
+API Gateway (server-local): http://127.0.0.1:8081/actuator/health
 
-Keycloak Console: http://localhost:8080
+Keycloak (server-local): http://127.0.0.1:8080
 
-Realm: game-realm (auto-imported)
+Public access must go through the HTTPS reverse proxy.
 
-## 🔐 Development Access
+## 🔐 Authentication
 
-> ⚠️ **IMPORTANT:** These credentials are pre-configured in `game-realm.json` for development purposes.
+The browser receives only the secure `__Host-GAME_SESSION` cookie. Access and refresh tokens are stored in the dedicated `gateway-session-redis` instance and are never exposed to frontend JavaScript.
 
-| Username | Password | Roles |
-| :--- | :--- | :--- |
-| **admin_user** | `admin` | `admin`, `superadmin` |
-| **test_user** | `test` | `user` |
+The `game-gateway` Keycloak client must be confidential, use the authorization code flow and allow these callback URLs:
 
-Note: To access /api/v1/admin/** endpoints, you must obtain a JWT from Keycloak and use it as a Bearer token.
----
+- `https://api.gameops-platform.dev/login/oauth2/code/keycloak`
+- `https://ru-api.gameops-platform.dev/login/oauth2/code/keycloak`
+
+Realm imports are applied only when the realm does not already exist. Update the existing production realm through the Keycloak Admin Console or Admin API; do not delete the realm to re-run the import.
+
+Keep business services and both Redis instances inaccessible from the public network. Only nginx should expose the frontend, Gateway and Keycloak hostnames.
 
 ## 📦 Database Management
 
@@ -78,15 +70,17 @@ docker compose up -d
 ## 🛠 Project Structure
 
 - `postgres-init/`: SQL scripts executed ONLY on first container startup.
-- `keycloak-import/`: Realm configuration (roles, clients, and dev users).
+- `keycloak-import/`: Bootstrap realm configuration for new installations.
 - `pg-data/`: Local directory for persistent DB storage (ignored by Git).
+- `gateway_session_redis_data`: Persistent Gateway sessions and OAuth2 authorized clients.
 
 ---
 
 ## 🛑 Security Notice
 
-- **Production:** This setup uses `start-dev` mode. For production, SSL/TLS and a proper reverse proxy (Nginx/Traefik) are mandatory.
+- **Production:** Keycloak runs in production mode behind an HTTPS reverse proxy. Preserve forwarded host and protocol headers in nginx.
 - **Secrets:** Never commit your actual `.env` file to version control.
+- **Existing servers:** Back up `.env`, the Compose file and Keycloak/Postgres data before rollout. Update local operational files selectively.
 
 ---
 
