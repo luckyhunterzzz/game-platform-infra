@@ -37,18 +37,22 @@ services:
           -e "s|__KC_SMTP_AUTH__|$${KC_SMTP_AUTH}|g" \
           -e "s|__KC_SMTP_SSL__|$${KC_SMTP_SSL}|g" \
           -e "s|__KC_SMTP_STARTTLS__|$${KC_SMTP_STARTTLS}|g" \
+          -e "s|__GAME_GATEWAY_CLIENT_SECRET__|$${GAME_GATEWAY_CLIENT_SECRET}|g" \
           /opt/keycloak/data/import/templates/game-realm.template.json \
           > /opt/keycloak/data/import/game-realm.json
         exec /opt/keycloak/bin/kc.sh start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      GAME_GATEWAY_CLIENT_SECRET: ${GAME_GATEWAY_CLIENT_SECRET:?Set GAME_GATEWAY_CLIENT_SECRET in .env}
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak_db
       KC_DB_USERNAME: ${KC_DB_USERNAME}
       KC_DB_PASSWORD: ${KC_DB_PASSWORD}
       KC_HEALTH_ENABLED: "true"
-      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_URL: http://localhost:8080
+      KC_HOSTNAME_STRICT: "true"
+      KC_HOSTNAME_STRICT_BACKCHANNEL: "true"
       KC_HTTP_RELATIVE_PATH: "/"
       KC_SMTP_HOST: ${KC_SMTP_HOST}
       KC_SMTP_PORT: ${KC_SMTP_PORT}
@@ -127,6 +131,28 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     networks:
       - game-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  gateway-session-redis:
+    image: redis:7.4
+    container_name: game-gateway-session-redis
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${GATEWAY_SESSION_REDIS_PASSWORD:?Set GATEWAY_SESSION_REDIS_PASSWORD in .env}
+    environment:
+      REDISCLI_AUTH: ${GATEWAY_SESSION_REDIS_PASSWORD:?Set GATEWAY_SESSION_REDIS_PASSWORD in .env}
+    volumes:
+      - gateway_session_redis_data:/data
+    networks:
+      - gateway-session-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -376,9 +402,34 @@ services:
       SPRING_PROFILES_ACTIVE: ${GATEWAY_PROFILE:-docker}
       SERVER_PORT: 8081
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/game-realm
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_PROVIDER: keycloak
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENT_ID: game-gateway
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENT_SECRET: ${GAME_GATEWAY_CLIENT_SECRET:?Set GAME_GATEWAY_CLIENT_SECRET in .env}
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_AUTHORIZATION_GRANT_TYPE: authorization_code
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_REDIRECT_URI: "{baseUrl}/login/oauth2/code/{registrationId}"
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_SCOPE: openid,profile,email
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_AUTHORIZATION_URI: http://localhost:8080/realms/game-realm/protocol/openid-connect/auth
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_TOKEN_URI: http://keycloak:8080/realms/game-realm/protocol/openid-connect/token
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_USER_INFO_URI: http://keycloak:8080/realms/game-realm/protocol/openid-connect/userinfo
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/game-realm/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_USER_NAME_ATTRIBUTE: preferred_username
+      SPRING_DATA_REDIS_HOST: gateway-session-redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: ${GATEWAY_SESSION_REDIS_PASSWORD:?Set GATEWAY_SESSION_REDIS_PASSWORD in .env}
+      SPRING_SESSION_REDIS_NAMESPACE: game:gateway:session
+      SPRING_SESSION_TIMEOUT: ${GATEWAY_SESSION_TTL:-7d}
+      SERVER_REACTIVE_SESSION_TIMEOUT: ${GATEWAY_SESSION_TTL:-7d}
+      SERVER_REACTIVE_SESSION_COOKIE_NAME: GAME_SESSION
+      SERVER_REACTIVE_SESSION_COOKIE_MAX_AGE: ${GATEWAY_SESSION_COOKIE_MAX_AGE:-7d}
+      SERVER_REACTIVE_SESSION_COOKIE_HTTP_ONLY: "true"
+      SERVER_REACTIVE_SESSION_COOKIE_SECURE: "false"
+      SERVER_REACTIVE_SESSION_COOKIE_SAME_SITE: Lax
+      APP_SECURITY_FRONTEND_BASE_URL: http://localhost:3000
       JAVA_OPTS: "-Xms256m -Xmx512m"
     depends_on:
       keycloak:
+        condition: service_healthy
+      gateway-session-redis:
         condition: service_healthy
       main-service:
         condition: service_healthy
@@ -391,6 +442,7 @@ services:
     restart: unless-stopped
     networks:
       - game-network
+      - gateway-session-network
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8081 && echo -e 'GET /actuator/health HTTP/1.1\r\nHost: localhost\r\n\r\n' >&3 && grep -q '200' <&3"]
       interval: 10s
@@ -402,9 +454,6 @@ services:
       context: ../game-platform-frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_KEYCLOAK_URL: http://localhost:8080
-        NEXT_PUBLIC_KEYCLOAK_REALM: game-realm
-        NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: game-frontend
         NEXT_PUBLIC_API_BASE_URL: http://localhost:8081
     container_name: game-frontend
     ports:
@@ -419,8 +468,12 @@ services:
 networks:
   game-network:
     driver: bridge
+  gateway-session-network:
+    driver: bridge
+    internal: true
 
 volumes:
   pg-data:
   minio_data:
   mongo_data:
+  gateway_session_redis_data:

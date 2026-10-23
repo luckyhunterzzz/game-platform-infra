@@ -33,4 +33,5 @@ replay_pid*
 pg-data/
 
 .env
+AGENTS.md
 keycloak-import/game-realm.json
