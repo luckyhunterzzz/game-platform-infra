@@ -51,6 +51,13 @@ The `game-gateway` Keycloak client must be confidential, use the authorization c
 - `https://api.gameops-platform.dev/login/oauth2/code/keycloak`
 - `https://ru-api.gameops-platform.dev/login/oauth2/code/keycloak`
 
+The Gateway maps the trusted API host to its matching frontend for login, login errors and logout:
+
+- `api.gameops-platform.dev` → `gameops-platform.dev`
+- `ru-api.gameops-platform.dev` → `ru.gameops-platform.dev`
+
+Keep `SERVER_FORWARD_HEADERS_STRATEGY=framework` enabled so Spring uses the HTTPS host and protocol supplied by nginx.
+
 Realm imports are applied only when the realm does not already exist. Update the existing production realm through the Keycloak Admin Console or Admin API; do not delete the realm to re-run the import.
 
 Keep business services and both Redis instances inaccessible from the public network. Only nginx should expose the frontend, Gateway and Keycloak hostnames.
@@ -70,7 +77,7 @@ docker compose up -d
 ## 🛠 Project Structure
 
 - `postgres-init/`: SQL scripts executed ONLY on first container startup.
-- `keycloak-import/`: Bootstrap realm configuration for new installations.
+- `keycloak-import/`: Bootstrap realm configuration for new installations. The template is mounted read-only and rendered inside the Keycloak container so secrets are not written into the checkout.
 - `pg-data/`: Local directory for persistent DB storage (ignored by Git).
 - `gateway_session_redis_data`: Persistent Gateway sessions and OAuth2 authorized clients.
 
