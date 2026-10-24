@@ -26,6 +26,7 @@ services:
       - -ec
       - |
         umask 077
+        mkdir -p /opt/keycloak/data/import
         sed \
           -e "s|__KC_SMTP_HOST__|$${KC_SMTP_HOST}|g" \
           -e "s|__KC_SMTP_PORT__|$${KC_SMTP_PORT}|g" \
