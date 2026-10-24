@@ -7,6 +7,12 @@
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "verifyEmail": true,
+  "loginTheme": "gameops",
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 604800,
+  "ssoSessionMaxLifespan": 604800,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
   "smtpServer": {
     "host": "smtp.yandex.ru",
     "port": "465",
@@ -26,40 +32,39 @@
       { "name": "contractor" }
     ]
   },
-  "clients": [
+  "requiredActions": [
     {
-      "clientId": "game-frontend",
+      "alias": "terms_and_conditions",
+      "name": "Terms and Conditions",
+      "providerId": "terms_and_conditions",
       "enabled": true,
-      "publicClient": true,
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
-      "redirectUris": [
-        "http://localhost:3000/*"
-      ],
-      "webOrigins": [
-        "http://localhost:3000"
-      ]
+      "defaultAction": true,
+      "priority": 20,
+      "config": {}
     }
   ],
-  "users": [
+  "clients": [
     {
-      "username": "admin",
+      "clientId": "game-gateway",
       "enabled": true,
-      "emailVerified": true,
-      "credentials": [
-        { "type": "password", "value": "admin", "temporary": false }
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "EijaFQ8OzMJnyPcp52UnqynInMaraMdq",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "__API_PUBLIC_URL__/login/oauth2/code/keycloak",
+        "__RU_API_PUBLIC_URL__/login/oauth2/code/keycloak"
       ],
-      "realmRoles": ["admin", "superadmin"]
-    },
-    {
-      "username": "test_user",
-      "enabled": true,
-      "email": "test_user@example.com",
-      "emailVerified": true,
-      "credentials": [
-        { "type": "password", "value": "test", "temporary": false }
+      "webOrigins": [
+        "__FRONTEND_URL__",
+        "__RU_FRONTEND_URL__"
       ],
-      "realmRoles": ["user"]
+      "attributes": {
+        "post.logout.redirect.uris": "__FRONTEND_URL__/*##__RU_FRONTEND_URL__/*"
+      }
     }
   ]
 }
